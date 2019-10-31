@@ -100,15 +100,15 @@ void loop(){
 		switch(packet.header & 0xf0){
 		case 0x80:
 			//note off
-			handleNoteOffEvent(packet.byte1);
+			handleNoteOffEvent(packet.byte2);
 			break;
 		case 0x90:
 			//note on
-			handleNoteOnEvent(packet.byte1, packet.byte2);
+			handleNoteOnEvent(packet.byte2, packet.byte3);
 			break;
 		case 0xe0:
 			//pitch bend
-			handlePitchBendEvent(packet.byte1, packet.byte2);
+			handlePitchBendEvent(packet.byte2, packet.byte3);
 			break;
 		default:
 			//ignore any other message
