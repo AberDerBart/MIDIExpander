@@ -1,8 +1,8 @@
 #include "MIDIUSB.h"
 #include "noteDict.h"
 
-#define STEP_PIN 14
-#define DIRECTION_PIN 13
+#define STEP_PIN 15
+#define DIRECTION_PIN 14
 
 #define NO_NOTE 128
 
@@ -11,11 +11,15 @@ int16_t pitchBend = 0;
 
 uint8_t halfTrack = 0;
 uint8_t direction;
+uint8_t step;
 
 void setup(){
 	//setup pins
 	pinMode(STEP_PIN, OUTPUT);
 	pinMode(DIRECTION_PIN, OUTPUT);
+
+	step = 0;
+	direction = 0;
 
 	//setup timer for note generation
 
@@ -36,6 +40,13 @@ void setup(){
 }
 
 ISR(TIMER1_COMPA_vect){
+	if(step){
+		digitalWrite(STEP_PIN, LOW);
+		step = 0;
+	}else{
+		digitalWrite(STEP_PIN, HIGH);
+		step = 1;
+	}
 	if(direction){
 		halfTrack++;
 		if(halfTrack == 159){
@@ -92,28 +103,25 @@ void handlePitchBendEvent(uint8_t byte1, uint8_t byte2){
 }
 
 void loop(){
-	if(MidiUSB.available()){
-		//get the MIDI packet
-		midiEventPacket_t packet = MidiUSB.read();
-		uint8_t velocity;
-		
-		switch(packet.header & 0xf0){
-		case 0x80:
-			//note off
-			handleNoteOffEvent(packet.byte2);
-			break;
-		case 0x90:
-			//note on
-			handleNoteOnEvent(packet.byte2, packet.byte3);
-			break;
-		case 0xe0:
-			//pitch bend
-			handlePitchBendEvent(packet.byte2, packet.byte3);
-			break;
-		default:
-			//ignore any other message
-			break;
-		}
+	//get the MIDI packet
+	midiEventPacket_t packet = MidiUSB.read();
+	uint8_t velocity;
+	
+	switch(packet.header & 0x0f){
+	case 0x08:
+		//note off
+		handleNoteOffEvent(packet.byte2);
+		break;
+	case 0x09:
+		//note on
+		handleNoteOnEvent(packet.byte2, packet.byte3);
+		break;
+	case 0x0e:
+		//pitch bend
+		handlePitchBendEvent(packet.byte2, packet.byte3);
+		break;
+	default:
+		//ignore any other message
+		break;
 	}
-
 }
