@@ -1,7 +1,7 @@
 import math
 
 def calcPeriod(note):
-    return 16 * 1024 * 1024 / (math.pow(2, (note - 69) / 12.) * 880.)
+    return 16000000 / (math.pow(2, (note - 69) / 12.) * 880.)
 
 def genNote(note):
     period = calcPeriod(note)
