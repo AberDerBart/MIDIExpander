@@ -13,13 +13,21 @@ def genNote(note):
     else:
         return '{' + str(round(period / 64)) + ', 0b00001011}'
 
+def noteName(note):
+    letters = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+
+    letterIndex = (note - 21) % 12
+    octave = (note - 12) // 12
+
+    return letters[letterIndex] + str(octave)
+
 
 def genNoteDict():
     noteDict = "struct counterSetting noteDict[] = {\n"
 
-    notes = ['\t' + genNote(note) for note in range(128)]
+    notes = ['\t' + genNote(note) + ', // ' + noteName(note) for note in range(128)]
 
-    noteDict += ',\n'.join(notes)
+    noteDict += '\n'.join(notes)
     noteDict += '\n};'
 
     return noteDict
