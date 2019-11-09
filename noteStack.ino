@@ -34,7 +34,9 @@ uint8_t removeNoteFromStack(uint8_t note){
 
 		if(next != NO_NOTE){
 			noteStack.notes[next].prev = prev;
-		}else{
+		}
+
+		if(noteStack.top == note){
 			noteStack.top = prev;
 		}
 
@@ -54,6 +56,11 @@ uint8_t pushNoteOnStack(uint8_t note){
 
 	noteStack.notes[note].prev = noteStack.top;
 	noteStack.notes[note].active = true;
+
+	if(noteStack.top != NO_NOTE){
+		noteStack.notes[noteStack.top].next = note;
+	}
+
 	noteStack.top = note;
 
 	return noteStack.top;
