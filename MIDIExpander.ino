@@ -10,16 +10,13 @@ uint8_t currentNote = NO_NOTE;
 int16_t pitchBend = 0;
 
 uint8_t halfTrack = 0;
-uint8_t direction;
-uint8_t step;
+uint8_t direction = 0;
+uint8_t step = 0;
 
 void setup(){
 	//setup pins
 	pinMode(STEP_PIN, OUTPUT);
 	pinMode(DIRECTION_PIN, OUTPUT);
-
-	step = 0;
-	direction = 0;
 
 	//setup timer for note generation
 
