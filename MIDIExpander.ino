@@ -6,6 +6,7 @@
 #define DIRECTION_PIN 14
 
 int16_t pitchBend = 0;
+bool noteChanged = false;
 
 uint8_t halfTrack = 0;
 uint8_t direction = 0;
@@ -55,34 +56,59 @@ ISR(TIMER1_COMPA_vect){
 			digitalWrite(DIRECTION_PIN, HIGH);
 		}
 	}
-}
+	
+	if(noteChanged){
+		// TODO: adjust pitchBend
+		uint8_t note = getStackTop();
 
-void setActiveNote(uint8_t note){
-	if(note == NO_NOTE){
-		/* Timer/Counter1 Control Register B
-		 * CTC mode (Bits 4:3 = 01)
-		 * Clock Select = No clock (Bits 2:0 = 000)
-		 */
-		TCCR1B = 0x00001000;
-	}else{
-		OCR1A = noteDict[note].ocr1a;
-		TCCR1B = noteDict[note].tccr1b;
-		/* Timer/Counter1
-		 * Reset t 0
-		 */
-		TCNT1 = 0;
+		if(note == NO_NOTE){
+			/* Timer/Counter1 Control Register B
+			 * CTC mode (Bits 4:3 = 01)
+			 * Clock Select = No clock (Bits 2:0 = 000)
+			 */
+			TCCR1B = 0x00001000;
+		}else{
+			if(pitchBend == 0){
+				OCR1A = noteDict[note].ocr1a;
+				TCCR1B = noteDict[note].tccr1b;
+			}else{
+				uint16_t off_ocr1a = 0;
+				int16_t bend = pitchBend;
+				
+				if(pitchBend < 0){
+					// calculate using only positive pitch bends by adjusting one note down
+					note--;
+					bend += PITCH_BEND_NEUTRAL;
+				}
+
+				if(noteDict[note].tccr1b == noteDict[note + 1].tccr1b){
+					// off_ocr1a = ((noteDict[note].ocr1a - noteDict[note + 1].ocr1a) * bend) / PITCH_BEND_NEUTRAL;
+					// the next line is equivalent to the one above
+					off_ocr1a = ((noteDict[note].ocr1a - noteDict[note + 1].ocr1a) * bend) << 13;
+				}else{
+					// off_ocr1a = ((noteDict[note].ocr1a - (noteDict[note + 1].ocr1a / 8)) * bend) / PITCH_BEND_NEUTRAL;
+					// the next line is equivalent to the one above
+					off_ocr1a = ((noteDict[note].ocr1a - (noteDict[note + 1].ocr1a << 3)) * bend) << 13;
+				}
+
+				OCR1A = noteDict[note].ocr1a + off_ocr1a;
+				TCCR1B = noteDict[note].tccr1b;
+			}
+		}
+
+		noteChanged = false;
 	}
 }
 
 void stopMidiNote(uint8_t note){
 	uint8_t top = removeNoteFromStack(note);
-	setActiveNote(top);
+	noteChanged = true;
 }
 
 void playMidiNote(uint8_t note){
 	if(note != getStackTop() && note < 128){
 		uint8_t top = pushNoteOnStack(note);
-		setActiveNote(top);
+		noteChanged = true;
 	}
 }
 
@@ -101,7 +127,8 @@ void handleNoteOffEvent(uint8_t note){
 }
 
 void handlePitchBendEvent(uint8_t byte1, uint8_t byte2){
-	pitchBend = ((byte2 << 8) | byte1) - 8192;
+	pitchBend = ((byte2 << 8) | byte1) - PITCH_BEND_NEUTRAL;
+	noteChanged = true;
 	//TODO: implement pitch bend value affecting pitch
 }
 

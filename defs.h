@@ -1,1 +1,2 @@
 #define NO_NOTE 128
+#define PITCH_BEND_NEUTRAL 8192
