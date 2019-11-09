@@ -17,6 +17,8 @@ void setup(){
 	pinMode(STEP_PIN, OUTPUT);
 	pinMode(DIRECTION_PIN, OUTPUT);
 
+	initStack();
+
 	//setup timer for note generation
 
 	/* Timer/Counter1 Control Register A
@@ -115,15 +117,13 @@ void playMidiNote(uint8_t note){
 void handleNoteOnEvent(uint8_t note, uint8_t velocity){
 	if(velocity != 0){
 		playMidiNote(note);
-	}else if(note == getStackTop()){
+	}else{
 		stopMidiNote(note);
 	}
 }
 
 void handleNoteOffEvent(uint8_t note){
-	if(note == getStackTop()){
-		stopMidiNote(note);
-	}
+	stopMidiNote(note);
 }
 
 void handlePitchBendEvent(uint8_t byte1, uint8_t byte2){
