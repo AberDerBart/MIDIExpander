@@ -1,12 +1,10 @@
 #include "MIDIUSB.h"
 #include "noteDict.h"
+#include "defs.h"
 
 #define STEP_PIN 15
 #define DIRECTION_PIN 14
 
-#define NO_NOTE 128
-
-uint8_t currentNote = NO_NOTE;
 int16_t pitchBend = 0;
 
 uint8_t halfTrack = 0;
@@ -62,38 +60,46 @@ ISR(TIMER1_COMPA_vect){
 	}
 }
 
-void stopMidiNote(){
-	/* Timer/Counter1 Control Register B
-	 * CTC mode (Bits 4:3 = 01)
-	 * Clock Select = No clock (Bits 2:0 = 000)
-	 */
-	TCCR1B = 0x00001000;
-	currentNote = NO_NOTE;
-}
-
-void playMidiNote(uint8_t note){
-	if(note != currentNote && note < 128){
+void setActiveNote(uint8_t note){
+	if(note == NO_NOTE){
+		/* Timer/Counter1 Control Register B
+		 * CTC mode (Bits 4:3 = 01)
+		 * Clock Select = No clock (Bits 2:0 = 000)
+		 */
+		TCCR1B = 0x00001000;
+	}else{
 		OCR1A = noteDict[note].ocr1a;
 		TCCR1B = noteDict[note].tccr1b;
 		/* Timer/Counter1
 		 * Reset t 0
 		 */
 		TCNT1 = 0;
-		currentNote = note;
+	}
+}
+
+void stopMidiNote(uint8_t note){
+	uint8_t top = removeNoteFromStack(note);
+	setActiveNote(top);
+}
+
+void playMidiNote(uint8_t note){
+	if(note != getStackTop() && note < 128){
+		uint8_t top = pushNoteOnStack(note);
+		setActiveNote(top);
 	}
 }
 
 void handleNoteOnEvent(uint8_t note, uint8_t velocity){
 	if(velocity != 0){
 		playMidiNote(note);
-	}else if(note == currentNote){
-		stopMidiNote();
+	}else if(note == getStackTop()){
+		stopMidiNote(note);
 	}
 }
 
 void handleNoteOffEvent(uint8_t note){
-	if(note == currentNote){
-		stopMidiNote();
+	if(note == getStackTop()){
+		stopMidiNote(note);
 	}
 }
 
