@@ -13,6 +13,9 @@ uint8_t direction = 0;
 uint8_t step = 0;
 
 void setup(){
+
+	Serial.begin(115200);
+
 	//setup pins
 	pinMode(STEP_PIN, OUTPUT);
 	pinMode(DIRECTION_PIN, OUTPUT);
@@ -35,6 +38,44 @@ void setup(){
 	 * Output Compare A Match Interrupt Enable set (Bit 1 = 1)
 	 */
 	TIMSK1 = 0b00000010;
+}
+
+void adjustTimer(){
+	Serial.println("adjustTimer");
+	Serial.println(pitchBend);
+	uint8_t note = getStackTop();
+
+	if(note == NO_NOTE){
+		/* Timer/Counter1 Control Register B
+		 * CTC mode (Bits 4:3 = 01)
+		 * Clock Select = No clock (Bits 2:0 = 000)
+		 */
+		TCCR1B = 0x00001000;
+		TCNT3 = 0;
+	}else{
+		if(pitchBend == 0){
+			OCR1A = noteDict[note].ocr1a;
+			TCCR1B = noteDict[note].tccr1b;
+		}else{
+			uint16_t off_ocr1a = 0;
+			float bend = (float) pitchBend / (float) PITCH_BEND_NEUTRAL;
+			
+			if(bend < 0){
+				// calculate using only positive pitch bends by adjusting one note down
+				note--;
+				bend += 1;
+			}
+
+			if(noteDict[note].tccr1b == noteDict[note + 1].tccr1b){
+				OCR1A = noteDict[note].ocr1a * (1 - bend) + noteDict[note + 1].ocr1a * bend;
+			}else{
+				OCR1A = noteDict[note].ocr1a * (1 - bend) + (noteDict[note + 1].ocr1a >> 3) * bend;
+			}
+
+			TCCR1B = noteDict[note].tccr1b;
+		}
+	}
+	noteChanged = false;
 }
 
 ISR(TIMER1_COMPA_vect){
@@ -60,45 +101,9 @@ ISR(TIMER1_COMPA_vect){
 	}
 	
 	if(noteChanged){
-		// TODO: adjust pitchBend
-		uint8_t note = getStackTop();
+		Serial.println("note changed");
 
-		if(note == NO_NOTE){
-			/* Timer/Counter1 Control Register B
-			 * CTC mode (Bits 4:3 = 01)
-			 * Clock Select = No clock (Bits 2:0 = 000)
-			 */
-			TCCR1B = 0x00001000;
-		}else{
-			if(pitchBend == 0){
-				OCR1A = noteDict[note].ocr1a;
-				TCCR1B = noteDict[note].tccr1b;
-			}else{
-				uint16_t off_ocr1a = 0;
-				int16_t bend = pitchBend;
-				
-				if(pitchBend < 0){
-					// calculate using only positive pitch bends by adjusting one note down
-					note--;
-					bend += PITCH_BEND_NEUTRAL;
-				}
-
-				if(noteDict[note].tccr1b == noteDict[note + 1].tccr1b){
-					// off_ocr1a = ((noteDict[note].ocr1a - noteDict[note + 1].ocr1a) * bend) / PITCH_BEND_NEUTRAL;
-					// the next line is equivalent to the one above
-					off_ocr1a = ((noteDict[note].ocr1a - noteDict[note + 1].ocr1a) * bend) << 13;
-				}else{
-					// off_ocr1a = ((noteDict[note].ocr1a - (noteDict[note + 1].ocr1a / 8)) * bend) / PITCH_BEND_NEUTRAL;
-					// the next line is equivalent to the one above
-					off_ocr1a = ((noteDict[note].ocr1a - (noteDict[note + 1].ocr1a << 3)) * bend) << 13;
-				}
-
-				OCR1A = noteDict[note].ocr1a + off_ocr1a;
-				TCCR1B = noteDict[note].tccr1b;
-			}
-		}
-
-		noteChanged = false;
+		adjustTimer();
 	}
 }
 
@@ -108,9 +113,16 @@ void stopMidiNote(uint8_t note){
 }
 
 void playMidiNote(uint8_t note){
+	Serial.print("Note on: ");
+	Serial.println(note);
 	if(note != getStackTop() && note < 128){
-		uint8_t top = pushNoteOnStack(note);
-		noteChanged = true;
+		if(getStackTop() != 128){
+			pushNoteOnStack(note);
+			noteChanged = true;
+		}else{
+			pushNoteOnStack(note);
+			adjustTimer();
+		}
 	}
 }
 
@@ -127,7 +139,7 @@ void handleNoteOffEvent(uint8_t note){
 }
 
 void handlePitchBendEvent(uint8_t byte1, uint8_t byte2){
-	pitchBend = ((byte2 << 8) | byte1) - PITCH_BEND_NEUTRAL;
+	pitchBend = ((byte2 << 7) | byte1) - PITCH_BEND_NEUTRAL;
 	noteChanged = true;
 	//TODO: implement pitch bend value affecting pitch
 }
